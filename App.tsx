@@ -24,9 +24,17 @@ function App() {
       const data = await analyzeAudio(base64Audio, topic);
       setResult(data);
       setState('RESULTS');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setErrorMsg("Failed to analyze audio. Please check your API connection and try again.");
+      // 提取更具体的错误信息给用户
+      const message = err.message || "Unknown error occurred";
+      if (message.includes("429") || message.includes("quota")) {
+        setErrorMsg("API Quota Exceeded (429): Your free usage limit for today is reached. Please try again tomorrow or use a different API key.");
+      } else if (message.includes("API_KEY is missing")) {
+        setErrorMsg("API Key Missing: Please set the API_KEY in your deployment environment variables.");
+      } else {
+        setErrorMsg(`Analysis failed: ${message}`);
+      }
       setState('ERROR');
     }
   };
@@ -40,7 +48,6 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-      {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -78,11 +85,6 @@ function App() {
                     placeholder="e.g., The role of Artificial Intelligence in medicine"
                     className="w-full p-4 text-lg border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none"
                   />
-                  {topic.length > 0 && topic.length < 5 && (
-                    <p className="mt-2 text-xs text-amber-600 flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" /> Topic is a bit short. Be more specific for better accuracy.
-                    </p>
-                  )}
                 </div>
                 
                 <div className="border-t border-slate-100 pt-6">
@@ -108,18 +110,20 @@ function App() {
         )}
 
         {state === 'ERROR' && (
-          <div className="max-w-md mx-auto mt-20 text-center animate-in zoom-in duration-300">
+          <div className="max-w-xl mx-auto mt-20 text-center animate-in zoom-in duration-300">
             <div className="bg-white p-8 rounded-2xl shadow-lg border border-red-100">
               <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
                 <AlertCircle className="w-10 h-10" />
               </div>
               <h3 className="text-xl font-bold text-slate-800 mb-2">Analysis Interrupted</h3>
-              <p className="text-slate-600 mb-6">{errorMsg}</p>
+              <p className="text-red-600 bg-red-50 p-4 rounded-lg mb-6 text-sm font-mono break-words text-left">
+                {errorMsg}
+              </p>
               <button 
                 onClick={() => setState('IDLE')}
                 className="w-full py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors font-bold"
               >
-                Go Back
+                Go Back & Try Again
               </button>
             </div>
           </div>
@@ -127,7 +131,6 @@ function App() {
 
         {state === 'RESULTS' && result && (
           <div className="space-y-8 animate-in fade-in duration-700">
-            {/* Top Summary Card (Full Width) */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 flex flex-col md:flex-row gap-8 items-center justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-3">
@@ -153,10 +156,7 @@ function App() {
               </div>
             </div>
 
-            {/* Middle Analytics Row (3 Columns) */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              
-              {/* Left: Radar Chart */}
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col">
                 <div className="flex items-center gap-2 mb-4">
                   <BarChart3 className="w-5 h-5 text-indigo-500" />
@@ -167,7 +167,6 @@ function App() {
                 </div>
               </div>
 
-              {/* CENTER: Evidence Log */}
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 border-t-4 border-t-emerald-500">
                  <div className="flex items-center gap-2 mb-6">
                     <Search className="w-5 h-5 text-emerald-600" />
@@ -204,7 +203,6 @@ function App() {
                   </div>
               </div>
 
-              {/* Right: Polished Version */}
               <div className="bg-slate-900 rounded-2xl shadow-lg text-white p-6 relative overflow-hidden flex flex-col justify-between">
                 <div className="absolute top-0 right-0 p-4 opacity-10">
                   <Sparkles className="w-24 h-24" />
@@ -230,7 +228,6 @@ function App() {
               </div>
             </div>
 
-            {/* Bottom Section: Transcript (Full Width) */}
             <div className="mt-12 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                <div className="bg-slate-50 border-b border-slate-200 px-8 py-4">
                   <h3 className="text-lg font-bold text-slate-800">Detailed Feedback & Transcript</h3>
