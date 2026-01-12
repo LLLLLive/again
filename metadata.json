@@ -1,0 +1,7 @@
+{
+  "name": "LinguistAI - IELTS Evaluator",
+  "description": "An AI-powered linguistic diagnostic tool that evaluates spoken English based on IELTS and CEFR standards.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
