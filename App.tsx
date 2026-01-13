@@ -1,16 +1,31 @@
 import React, { useState } from 'react';
 import { AppState, AnalysisResult } from './types';
-import { analyzeAudio } from './services/geminiService';
+import { analyzeAudio, testAPIConnection } from './services/geminiService';
 import Recorder from './components/Recorder';
 import TranscriptDisplay from './components/TranscriptDisplay';
 import ScoreChart from './components/RadarChart';
-import { Brain, Sparkles, RefreshCw, BarChart3, Quote, TrendingUp, Search, CheckCircle, AlertCircle } from 'lucide-react';
+import { Brain, Sparkles, RefreshCw, BarChart3, Quote, TrendingUp, Search, CheckCircle, AlertCircle, Wifi, WifiOff } from 'lucide-react';
 
 function App() {
   const [state, setState] = useState<AppState>('IDLE');
   const [topic, setTopic] = useState('');
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'testing' | 'success' | 'failed'>('unknown');
+  const [connectionMsg, setConnectionMsg] = useState('');
+
+  const handleTestConnection = async () => {
+    setConnectionStatus('testing');
+    const result = await testAPIConnection();
+    if (result.success) {
+      setConnectionStatus('success');
+      setConnectionMsg("API Connected Successfully");
+      setTimeout(() => setConnectionStatus('unknown'), 3000); // Hide after 3s
+    } else {
+      setConnectionStatus('failed');
+      setConnectionMsg(result.message);
+    }
+  };
 
   const handleRecordingComplete = async (base64Audio: string) => {
     if (topic.trim().length < 3) {
@@ -26,14 +41,14 @@ function App() {
       setState('RESULTS');
     } catch (err: any) {
       console.error(err);
-      // 提取更具体的错误信息给用户
-      const message = err.message || "Unknown error occurred";
-      if (message.includes("429") || message.includes("quota")) {
-        setErrorMsg("API Quota Exceeded (429): Your free usage limit for today is reached. Please try again tomorrow or use a different API key.");
-      } else if (message.includes("API_KEY is missing")) {
-        setErrorMsg("API Key Missing: Please set the API_KEY in your deployment environment variables.");
+      if (err.message === "QUOTA_EXCEEDED") {
+        setErrorMsg("Today's free analysis quota is exhausted (Error 429). Gemini Flash models have a daily limit. Please try again in a few hours or use a different API key.");
+      } else if (err.message === "INVALID_API_KEY") {
+        setErrorMsg("Your API Key is invalid or not authorized for this model/region. Please check Google AI Studio.");
+      } else if (err.message === "API_KEY_MISSING") {
+        setErrorMsg("API Key is not configured in Netlify environment variables.");
       } else {
-        setErrorMsg(`Analysis failed: ${message}`);
+        setErrorMsg(`Something went wrong: ${err.message || "Unknown error"}`);
       }
       setState('ERROR');
     }
@@ -56,12 +71,41 @@ function App() {
             </div>
             <h1 className="text-xl font-bold text-slate-800 tracking-tight">LinguistAI <span className="text-indigo-600 font-light">Evaluator</span></h1>
           </div>
-          <div className="text-sm font-medium text-slate-500 flex items-center gap-2">
-             <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
-             AI Examiner Active
+          <div className="flex items-center gap-4">
+             {/* Connection Tester */}
+             <button 
+               onClick={handleTestConnection}
+               disabled={connectionStatus === 'testing'}
+               className={`text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-2 transition-all border ${
+                 connectionStatus === 'success' ? 'bg-green-100 text-green-700 border-green-200' :
+                 connectionStatus === 'failed' ? 'bg-red-100 text-red-700 border-red-200' :
+                 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+               }`}
+             >
+               {connectionStatus === 'testing' ? <RefreshCw className="w-3 h-3 animate-spin" /> : 
+                connectionStatus === 'success' ? <Wifi className="w-3 h-3" /> :
+                connectionStatus === 'failed' ? <WifiOff className="w-3 h-3" /> :
+                <Wifi className="w-3 h-3 opacity-50" />
+               }
+               {connectionStatus === 'unknown' ? 'Test API' : 
+                connectionStatus === 'testing' ? 'Connecting...' :
+                connectionStatus === 'success' ? 'API OK' : 'Failed'}
+             </button>
+
+             <div className="text-sm font-medium text-slate-500 hidden sm:flex items-center gap-2">
+                <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                Flash Mode
+             </div>
           </div>
         </div>
       </header>
+      
+      {/* Error Banner for Connection Test */}
+      {connectionStatus === 'failed' && (
+        <div className="bg-red-600 text-white text-center text-sm py-2 px-4 animate-in slide-in-from-top">
+          <strong>API Connection Failed:</strong> {connectionMsg}
+        </div>
+      )}
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-8">
         
@@ -82,7 +126,7 @@ function App() {
                     type="text" 
                     value={topic}
                     onChange={(e) => setTopic(e.target.value)}
-                    placeholder="e.g., The role of Artificial Intelligence in medicine"
+                    placeholder="e.g., Describe a beautiful place you have visited"
                     className="w-full p-4 text-lg border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none"
                   />
                 </div>
@@ -116,9 +160,9 @@ function App() {
                 <AlertCircle className="w-10 h-10" />
               </div>
               <h3 className="text-xl font-bold text-slate-800 mb-2">Analysis Interrupted</h3>
-              <p className="text-red-600 bg-red-50 p-4 rounded-lg mb-6 text-sm font-mono break-words text-left">
+              <div className="text-red-600 bg-red-50 p-4 rounded-lg mb-6 text-sm text-center leading-relaxed">
                 {errorMsg}
-              </p>
+              </div>
               <button 
                 onClick={() => setState('IDLE')}
                 className="w-full py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors font-bold"
